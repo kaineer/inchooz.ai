@@ -13,7 +13,7 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
 
     let outer_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::White))
+        .border_style(Style::default().fg(Color::DarkGray))
         .title(" Debug Mode (Ctrl+C to quit) ")
         .padding(Padding {
             left: 1,

@@ -15,7 +15,7 @@ pub fn render_normal(frame: &mut Frame, app: &App) {
     // Создаем одинарную рамку на всю область
     let outer_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::White))
+        .border_style(Style::default().fg(Color::DarkGray))
         .padding(Padding {
             left: 1,
             right: 1,
