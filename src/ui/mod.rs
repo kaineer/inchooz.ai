@@ -1,9 +1,8 @@
-mod normal;
 mod debug;
+mod normal;
 
-// use ratatui::{Frame, layout::{Layout, Constraint, Direction}};
-use ratatui::{Frame};
 use crate::app::App;
+use ratatui::Frame;
 
 pub fn render(frame: &mut Frame, app: &App) {
     if app.debug_mode {

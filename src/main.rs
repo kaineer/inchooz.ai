@@ -3,14 +3,14 @@ mod handlers;
 mod ui;
 mod utils;
 
-use std::time::{Duration, Instant};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::Backend, Terminal};
 use ratatui::prelude::CrosstermBackend;
+use ratatui::{Terminal, backend::Backend};
+use std::time::{Duration, Instant};
 
 use app::App;
 use handlers::key::handle_key;
@@ -52,11 +52,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Инициализация терминала
+    // Проверяем, доступен ли TUI (должен быть терминал для stderr)
+    if !atty::is(atty::Stream::Stderr) {
+        eprintln!(
+            "Error: TUI mode requires a terminal (stderr is not a terminal).\n\
+            \r       Hint: Run without redirecting stderr, or use a terminal emulator.\n\
+            \r       Current command: {}",
+            args.join(" ")
+        );
+        std::process::exit(1);
+    }
+
+    // Инициализация TUI в stderr
     enable_raw_mode()?;
-    let mut stdout = std::io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
+    let mut stderr = std::io::stderr();
+    execute!(stderr, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stderr);
     let mut terminal = Terminal::new(backend)?;
 
     // Создаем приложение
@@ -74,32 +85,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     terminal.show_cursor()?;
 
-    // Выводим выбранную строку, если она есть
+    // Выводим результат в stdout
     if let Some(selected) = app.selected_output {
         println!("{}", selected);
     }
 
     if let Err(err) = result {
-        println!("Error: {:?}", err);
+        eprintln!("Error: {:?}", err);
     }
 
     Ok(())
 }
 
-async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut last_update_check = Instant::now();
 
     while !app.should_quit() {
         terminal.draw(|f| render(f, app))?;
 
         // Проверяем, не прошло ли достаточно времени для обновления
-        if app.pending_update() && !app.is_loading() && last_update_check.elapsed() > Duration::from_millis(100) {
+        if app.pending_update()
+            && !app.is_loading()
+            && last_update_check.elapsed() > Duration::from_millis(100)
+        {
             if app.last_input_time.elapsed() > Duration::from_millis(app::INPUT_DEBOUNCE_MS) {
                 app.set_loading(true);
                 let input = app.input().to_string();
                 let script_name = app.script_name().to_string();
 
-                // Запускаем скрипт в отдельной задаче
+                // Запускаем скрипт
                 let (new_output, cmd) = handlers::script::run_script(&script_name, &input).await;
 
                 app.update_results(new_output, cmd);

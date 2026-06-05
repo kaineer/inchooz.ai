@@ -1,6 +1,6 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crate::app::App;
 use super::script;
+use crate::app::App;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub async fn handle_key(app: &mut App, key: KeyEvent) -> Result<(), Box<dyn std::error::Error>> {
     // Не обрабатываем клавиши во время загрузки
@@ -75,7 +75,7 @@ async fn handle_enter(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             app.select_first();
         }
     } else if let Some(selected) = app.select_current() {
-        // Если что-то выбрано - выбираем этот элемент
+        // Сохраняем выбранный элемент и выходим с корректной очисткой
         app.selected_output = Some(selected);
         app.quit();
     } else {
