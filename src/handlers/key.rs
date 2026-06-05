@@ -41,13 +41,15 @@ pub async fn handle_key(app: &mut App, key: KeyEvent) -> Result<(), Box<dyn std:
 
         // Esc - выход или сброс выбора
         (KeyCode::Esc, _) => {
-            if app.has_selection() {
-                // Если что-то выбрано - сначала сбрасываем выбор
-                app.clear_selection();
-            } else {
-                // Иначе выходим
-                app.quit();
-            }
+            app.quit();
+
+            //     if app.has_selection() {
+            //         // Если что-то выбрано - сначала сбрасываем выбор
+            //         app.clear_selection();
+            //     } else {
+            //         // Иначе выходим
+            //         app.quit();
+            //     }
         }
 
         _ => {}

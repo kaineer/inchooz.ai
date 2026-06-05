@@ -93,9 +93,9 @@ impl App {
         }
     }
 
-    pub fn clear_selection(&mut self) {
-        self.selected_index = None;
-    }
+    // pub fn clear_selection(&mut self) {
+    //     self.selected_index = None;
+    // }
 
     pub fn quit(&mut self) {
         self.should_quit = true;
@@ -103,7 +103,9 @@ impl App {
 
     pub fn update_results(&mut self, new_output: Vec<String>, command: String) {
         // Сохраняем текущий выбранный текст, если он есть
-        let selected_text = self.selected_index.and_then(|i| self.script_output.get(i).cloned());
+        let selected_text = self
+            .selected_index
+            .and_then(|i| self.script_output.get(i).cloned());
 
         self.script_output = new_output;
         self.last_command = command;
@@ -157,12 +159,13 @@ impl App {
     }
 
     pub fn select_current(&mut self) -> Option<String> {
-        self.selected_index.and_then(|i| self.script_output.get(i).cloned())
+        self.selected_index
+            .and_then(|i| self.script_output.get(i).cloned())
     }
 
-    pub fn has_selection(&self) -> bool {
-        self.selected_index.is_some()
-    }
+    // pub fn has_selection(&self) -> bool {
+    //     self.selected_index.is_some()
+    // }
 
     pub fn has_results(&self) -> bool {
         !self.script_output.is_empty()
