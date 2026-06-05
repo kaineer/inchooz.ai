@@ -85,8 +85,8 @@ pub fn render_normal(frame: &mut Frame, app: &App) {
                 if Some(i) == app.selected_index() {
                     ListItem::new(display_line).style(
                         Style::default()
-                            .fg(Color::Black)
-                            .bg(Color::Yellow)
+                            .fg(Color::White)
+                            .bg(Color::Rgb((0), (0), (0)))
                             .add_modifier(Modifier::BOLD),
                     )
                 } else {
