@@ -9,10 +9,8 @@ use ratatui::{
 use crate::app::App;
 
 pub fn render_debug(frame: &mut Frame, app: &App) {
-    // Получаем всю область терминала
     let area = frame.size();
 
-    // Создаем одинарную рамку на всю область
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::White))
@@ -29,35 +27,52 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    // Внутренняя область (внутри рамки)
     let inner_area = outer_block.inner(area);
-
-    // Отрисовываем рамку
     frame.render_widget(outer_block, area);
 
-    // Разделяем внутреннюю область
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1), // Строка ввода
             Constraint::Length(1), // Разделитель
-            Constraint::Length(1), // Статус (для debug)
+            Constraint::Length(1), // Статус (debug)
             Constraint::Min(1),    // Список результатов
         ])
         .margin(0)
         .split(inner_area);
 
-    // 1. Строка ввода с префиксом "> "
-    let input_text = format!("> {}", app.input());
+    // 1. Строка ввода с курсором
+    let input_prefix = if app.is_loading() { "⏳ " } else { "> " };
+
+    // Создаем текст с курсором
+    // Используем символ подчеркивания или вертикальную черту в зависимости от состояния
+    let cursor_char = if app.is_loading() { '░' } else { ' ' };
+
+    // Позиция курсора в строке ввода (после всего текста)
+    let cursor_pos = app.input().len();
+
+    // Формируем строку с визуальным курсором
+    let mut display_text = format!("{}{}", input_prefix, app.input());
+
+    // Добавляем курсор в конец строки (можно настроить позицию)
+    display_text.push(cursor_char);
+
     let input_style = if app.is_loading() {
         Style::default().fg(Color::Cyan)
     } else {
         Style::default().fg(Color::White)
     };
 
-    let input_paragraph =
-        Paragraph::new(Span::styled(input_text, input_style)).style(Style::default());
+    let input_paragraph = Paragraph::new(Span::styled(display_text, input_style));
     frame.render_widget(input_paragraph, chunks[0]);
+
+    // Устанавливаем позицию курсора в терминале
+    // Координаты: x = chunks[0].x + len(prefix) + cursor_pos, y = chunks[0].y
+    let cursor_x = chunks[0].x + (input_prefix.len() + cursor_pos) as u16;
+    let cursor_y = chunks[0].y;
+
+    // Показываем курсор (мигающий)
+    frame.set_cursor(cursor_x, cursor_y);
 
     // 2. Горизонтальная разделительная линия
     let separator = "─".repeat(chunks[1].width as usize);
