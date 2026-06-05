@@ -17,20 +17,25 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(script_name: String, debug_mode: bool) -> Self {
-        Self {
-            input: String::new(),
+    pub fn new(script_name: String, debug_mode: bool, initial_query: String) -> Self {
+        let mut app = Self {
+            input: initial_query.clone(),
             script_output: Vec::new(),
             selected_index: None,
             script_name,
             should_quit: false,
             selected_output: None,
             last_input_time: Instant::now(),
-            pending_update: false,
+            pending_update: !initial_query.is_empty(), // если есть запрос, запускаем обновление
             last_command: String::new(),
             is_loading: false,
             debug_mode,
+        };
+        // Если начальный запрос не пуст, сразу отмечаем необходимость обновления
+        if !initial_query.is_empty() {
+            app.last_input_time = Instant::now(); // сбросим таймер, чтобы дебаунс сработал через INPUT_DEBOUNCE_MS
         }
+        app
     }
 
     // Геттеры

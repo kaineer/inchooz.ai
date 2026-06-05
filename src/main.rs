@@ -24,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Парсим флаги
     let mut script_name = None;
     let mut debug_mode = false;
+    let mut initial_query = String::new();
 
     let mut i = 1;
     while i < args.len() {
@@ -31,6 +32,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "-d" => {
                 debug_mode = true;
                 i += 1;
+            }
+            "-q" | "--query" => {
+                if i + 1 < args.len() {
+                    initial_query = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    eprintln!("Error: -q/--query requires a value");
+                    std::process::exit(1);
+                }
             }
             _ => {
                 if script_name.is_none() {
@@ -71,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // Создаем приложение
-    let mut app = App::new(script_name, debug_mode);
+    let mut app = App::new(script_name, debug_mode, initial_query);
 
     // Запускаем основной цикл
     let result = run_app(&mut terminal, &mut app).await;
