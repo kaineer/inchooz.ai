@@ -45,7 +45,7 @@ pub fn render_normal(frame: &mut Frame, app: &App) {
 
     // 1. Строка ввода с курсором
     let input_prefix = if app.is_loading() { "⏳ " } else { "> " };
-    let cursor_char = if app.is_loading() { '░' } else { '│' };
+    let cursor_char = if app.is_loading() { '░' } else { ' ' };
     let cursor_pos = app.input().len();
 
     let mut display_text = format!("{}{}", input_prefix, app.input());
