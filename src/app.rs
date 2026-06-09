@@ -4,6 +4,8 @@ pub const INPUT_DEBOUNCE_MS: u64 = 500;
 
 pub struct App {
     input: String,
+    buffer: String,
+    buffer_selected: bool,
     script_output: Vec<String>,
     selected_index: Option<usize>,
     script_name: String,
@@ -20,20 +22,21 @@ impl App {
     pub fn new(script_name: String, debug_mode: bool, initial_query: String) -> Self {
         let mut app = Self {
             input: initial_query.clone(),
+            buffer: String::new(),
+            buffer_selected: false,
             script_output: Vec::new(),
             selected_index: None,
             script_name,
             should_quit: false,
             selected_output: None,
             last_input_time: Instant::now(),
-            pending_update: !initial_query.is_empty(), // если есть запрос, запускаем обновление
+            pending_update: !initial_query.is_empty(),
             last_command: String::new(),
             is_loading: false,
             debug_mode,
         };
-        // Если начальный запрос не пуст, сразу отмечаем необходимость обновления
         if !initial_query.is_empty() {
-            app.last_input_time = Instant::now(); // сбросим таймер, чтобы дебаунс сработал через INPUT_DEBOUNCE_MS
+            app.last_input_time = Instant::now();
         }
         app
     }
@@ -41,6 +44,10 @@ impl App {
     // Геттеры
     pub fn input(&self) -> &str {
         &self.input
+    }
+
+    pub fn buffer(&self) -> &str {
+        &self.buffer
     }
 
     pub fn script_output(&self) -> &Vec<String> {
@@ -71,6 +78,22 @@ impl App {
         &self.last_command
     }
 
+    pub fn has_buffer(&self) -> bool {
+        !self.buffer.is_empty()
+    }
+
+    pub fn is_buffer_selected(&self) -> bool {
+        self.buffer_selected && self.has_buffer()
+    }
+
+    pub fn has_selection(&self) -> bool {
+        self.selected_index.is_some()
+    }
+
+    pub fn has_results(&self) -> bool {
+        !self.script_output.is_empty()
+    }
+
     // Сеттеры и мутаторы
     pub fn set_loading(&mut self, loading: bool) {
         self.is_loading = loading;
@@ -80,7 +103,18 @@ impl App {
         self.pending_update = pending;
     }
 
+    pub fn select_buffer(&mut self, selected: bool) {
+        self.buffer_selected = selected && self.has_buffer();
+        if selected {
+            self.selected_index = None; // Снимаем выделение с вариантов
+        }
+    }
+
     pub fn push_char(&mut self, c: char) {
+        // Если был выбран буфер, снимаем выделение с него при начале ввода
+        if self.buffer_selected {
+            self.buffer_selected = false;
+        }
         self.input.push(c);
         self.last_input_time = Instant::now();
         self.pending_update = true;
@@ -90,6 +124,10 @@ impl App {
     }
 
     pub fn pop_char(&mut self) {
+        // Если был выбран буфер, снимаем выделение с него при удалении
+        if self.buffer_selected {
+            self.buffer_selected = false;
+        }
         self.input.pop();
         self.last_input_time = Instant::now();
         self.pending_update = true;
@@ -98,9 +136,36 @@ impl App {
         }
     }
 
-    // pub fn clear_selection(&mut self) {
-    //     self.selected_index = None;
+    pub fn pop_buffer_char(&mut self) {
+        self.buffer.pop();
+        if self.buffer.is_empty() {
+            self.buffer_selected = false;
+        }
+    }
+
+    pub fn append_to_buffer(&mut self, text: &str) {
+        if !self.buffer.is_empty() {
+            self.buffer.push('\n');
+        }
+        self.buffer.push_str(text);
+        // После добавления автоматически выбираем буфер
+        self.buffer_selected = true;
+        self.selected_index = None;
+    }
+
+    // pub fn clear_buffer(&mut self) {
+    //     self.buffer.clear();
+    //     self.buffer_selected = false;
     // }
+
+    pub fn clear_selection(&mut self) {
+        self.selected_index = None;
+    }
+
+    pub fn clear_results(&mut self) {
+        self.script_output.clear();
+        self.selected_index = None;
+    }
 
     pub fn quit(&mut self) {
         self.should_quit = true;
@@ -126,14 +191,24 @@ impl App {
     pub fn select_first(&mut self) {
         if !self.script_output.is_empty() {
             self.selected_index = Some(0);
+            self.buffer_selected = false; // При выборе варианта снимаем выделение с буфера
         }
     }
 
-    pub fn select_last(&mut self) {
-        if !self.script_output.is_empty() {
-            self.selected_index = Some(self.script_output.len() - 1);
-        }
+    pub fn clear_input(&mut self) {
+        self.input.clear();
+        self.last_input_time = Instant::now();
+        self.pending_update = true;
+        self.selected_index = None;
+        self.buffer_selected = false;
     }
+
+    // pub fn select_last(&mut self) {
+    //     if !self.script_output.is_empty() {
+    //         self.selected_index = Some(self.script_output.len() - 1);
+    //         self.buffer_selected = false;
+    //     }
+    // }
 
     pub fn select_next(&mut self) {
         if self.script_output.is_empty() || self.is_loading {
@@ -141,11 +216,16 @@ impl App {
         }
 
         match self.selected_index {
-            None => self.select_first(),
+            None => {
+                // Если ничего не выбрано - выбираем первый
+                self.selected_index = Some(0);
+                self.buffer_selected = false;
+            }
             Some(i) if i < self.script_output.len() - 1 => {
                 self.selected_index = Some(i + 1);
+                self.buffer_selected = false;
             }
-            _ => {}
+            _ => {} // На последнем элементе ничего не делаем
         }
     }
 
@@ -155,24 +235,23 @@ impl App {
         }
 
         match self.selected_index {
-            None => self.select_last(),
+            None => {
+                // Если ничего не выбрано - выбираем последний
+                if !self.script_output.is_empty() {
+                    self.selected_index = Some(self.script_output.len() - 1);
+                    self.buffer_selected = false;
+                }
+            }
             Some(i) if i > 0 => {
                 self.selected_index = Some(i - 1);
+                self.buffer_selected = false;
             }
-            _ => {}
+            _ => {} // На первом элементе ничего не делаем
         }
     }
 
     pub fn select_current(&mut self) -> Option<String> {
         self.selected_index
             .and_then(|i| self.script_output.get(i).cloned())
-    }
-
-    // pub fn has_selection(&self) -> bool {
-    //     self.selected_index.is_some()
-    // }
-
-    pub fn has_results(&self) -> bool {
-        !self.script_output.is_empty()
     }
 }

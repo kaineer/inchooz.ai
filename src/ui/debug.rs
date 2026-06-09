@@ -13,7 +13,7 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
 
     let outer_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray))
+        .border_style(Style::default().fg(Color::Black))
         .title(" Debug Mode (Ctrl+C to quit) ")
         .padding(Padding {
             left: 1,
@@ -30,31 +30,35 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
     let inner_area = outer_block.inner(area);
     frame.render_widget(outer_block, area);
 
+    // Динамически определяем количество строк в верхней части
+    let mut constraints = vec![
+        Constraint::Length(1), // Строка ввода
+        Constraint::Length(1), // Разделитель после ввода
+        Constraint::Length(1), // Статус (для debug)
+    ];
+
+    if app.has_buffer() {
+        constraints.push(Constraint::Length(1)); // Разделитель после статуса
+        constraints.push(Constraint::Length(1)); // Строка буфера
+        constraints.push(Constraint::Length(1)); // Разделитель после буфера
+    }
+
+    constraints.push(Constraint::Min(1)); // Список результатов
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1), // Строка ввода
-            Constraint::Length(1), // Разделитель
-            Constraint::Length(1), // Статус (debug)
-            Constraint::Min(1),    // Список результатов
-        ])
+        .constraints(constraints)
         .margin(0)
         .split(inner_area);
 
+    let mut chunk_index = 0;
+
     // 1. Строка ввода с курсором
     let input_prefix = if app.is_loading() { "⏳ " } else { "> " };
-
-    // Создаем текст с курсором
-    // Используем символ подчеркивания или вертикальную черту в зависимости от состояния
     let cursor_char = if app.is_loading() { '░' } else { ' ' };
-
-    // Позиция курсора в строке ввода (после всего текста)
     let cursor_pos = app.input().len();
 
-    // Формируем строку с визуальным курсором
     let mut display_text = format!("{}{}", input_prefix, app.input());
-
-    // Добавляем курсор в конец строки (можно настроить позицию)
     display_text.push(cursor_char);
 
     let input_style = if app.is_loading() {
@@ -64,21 +68,20 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
     };
 
     let input_paragraph = Paragraph::new(Span::styled(display_text, input_style));
-    frame.render_widget(input_paragraph, chunks[0]);
+    frame.render_widget(input_paragraph, chunks[chunk_index]);
 
-    // Устанавливаем позицию курсора в терминале
-    // Координаты: x = chunks[0].x + len(prefix) + cursor_pos, y = chunks[0].y
-    let cursor_x = chunks[0].x + (input_prefix.len() + cursor_pos) as u16;
-    let cursor_y = chunks[0].y;
-
-    // Показываем курсор (мигающий)
+    let cursor_x = chunks[chunk_index].x + (input_prefix.len() + cursor_pos) as u16;
+    let cursor_y = chunks[chunk_index].y;
     frame.set_cursor(cursor_x, cursor_y);
 
-    // 2. Горизонтальная разделительная линия
-    let separator = "─".repeat(chunks[1].width as usize);
-    let separator_style = Style::default().fg(Color::DarkGray);
-    let separator_paragraph = Paragraph::new(Span::styled(separator, separator_style));
-    frame.render_widget(separator_paragraph, chunks[1]);
+    chunk_index += 1;
+
+    // 2. Разделитель после ввода
+    let separator1 = "─".repeat(chunks[chunk_index].width as usize);
+    let separator1_style = Style::default().fg(Color::DarkGray);
+    let separator1_paragraph = Paragraph::new(Span::styled(separator1, separator1_style));
+    frame.render_widget(separator1_paragraph, chunks[chunk_index]);
+    chunk_index += 1;
 
     // 3. Статусная строка (debug информация)
     let status_text = if app.is_loading() {
@@ -96,9 +99,50 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
     };
 
     let status_paragraph = Paragraph::new(Span::styled(status_text, status_style));
-    frame.render_widget(status_paragraph, chunks[2]);
+    frame.render_widget(status_paragraph, chunks[chunk_index]);
+    chunk_index += 1;
 
-    // 4. Список результатов
+    // 4. Если есть буфер, показываем его
+    if app.has_buffer() {
+        // Разделитель после статуса
+        let separator2 = "─".repeat(chunks[chunk_index].width as usize);
+        let separator2_style = Style::default().fg(Color::DarkGray);
+        let separator2_paragraph = Paragraph::new(Span::styled(separator2, separator2_style));
+        frame.render_widget(separator2_paragraph, chunks[chunk_index]);
+        chunk_index += 1;
+
+        // Строка буфера
+        let buffer_prefix = if app.is_buffer_selected() {
+            "> "
+        } else {
+            "📋 "
+        };
+        // Заменяем переносы строк на пробелы для отображения
+        let buffer_clean = app.buffer().replace('\n', "");
+        let buffer_display = format!("{}{}", buffer_prefix, buffer_clean);
+
+        let buffer_style = if app.is_buffer_selected() {
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Green)
+        };
+
+        let buffer_paragraph = Paragraph::new(Span::styled(buffer_display, buffer_style));
+        frame.render_widget(buffer_paragraph, chunks[chunk_index]);
+        chunk_index += 1;
+
+        // Разделитель после буфера
+        let separator3 = "─".repeat(chunks[chunk_index].width as usize);
+        let separator3_style = Style::default().fg(Color::DarkGray);
+        let separator3_paragraph = Paragraph::new(Span::styled(separator3, separator3_style));
+        frame.render_widget(separator3_paragraph, chunks[chunk_index]);
+        chunk_index += 1;
+    }
+
+    // 5. Список результатов
     if app.has_results() {
         let items: Vec<ListItem> = app
             .script_output()
@@ -124,7 +168,7 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
             .highlight_style(Style::default().bg(Color::Yellow).fg(Color::Black))
             .highlight_symbol("> ");
 
-        frame.render_widget(list, chunks[3]);
+        frame.render_widget(list, chunks[chunk_index]);
     } else {
         let hint = if app.is_loading() {
             "⏳ Loading..."
@@ -141,6 +185,6 @@ pub fn render_debug(frame: &mut Frame, app: &App) {
         };
 
         let hint_paragraph = Paragraph::new(Span::styled(hint, hint_style));
-        frame.render_widget(hint_paragraph, chunks[3]);
+        frame.render_widget(hint_paragraph, chunks[chunk_index]);
     }
 }
